@@ -1,0 +1,851 @@
+<!D<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>NEO-VETOR: Operação A.E.D.E.S.</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:'Courier New',monospace;touch-action:none}
+canvas{display:block;width:100%;height:100%}
+#ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center}
+#ui.active{pointer-events:auto}
+.menu-box{background:linear-gradient(135deg,rgba(10,0,30,0.98),rgba(20,0,50,0.98));border:2px solid #00f0ff;padding:30px;text-align:center;max-width:450px;width:90%;box-shadow:0 0 60px rgba(0,240,255,0.3)}
+.menu-box h1{font-size:42px;color:#00f0ff;text-shadow:0 0 30px #00f0ff;margin-bottom:8px;letter-spacing:6px;font-weight:900}
+.menu-box h2{font-size:13px;color:#ff6b00;margin-bottom:20px;letter-spacing:8px}
+.menu-box p{color:#8ab8d8;font-size:12px;line-height:1.8;margin-bottom:16px;text-align:left;padding:0 10px}
+.menu-box label{color:#00ff88;font-size:12px;display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:2px}
+.menu-box input{width:85%;padding:12px;border:1px solid #00ff88;background:rgba(0,255,136,0.05);color:#fff;font-size:16px;text-align:center;outline:none;margin-bottom:20px;font-family:'Courier New',monospace;text-transform:uppercase}
+.btn{display:inline-block;padding:14px 40px;border:1px solid #00ff88;background:rgba(0,255,136,0.1);color:#00ff88;font-size:15px;font-weight:700;cursor:pointer;letter-spacing:4px;text-transform:uppercase;transition:all 0.3s;font-family:'Courier New',monospace}
+.btn:hover{background:rgba(0,255,136,0.25);box-shadow:0 0 30px rgba(0,255,136,0.5)}
+.btn-orange{border-color:#ff6b00;color:#ff6b00;background:rgba(255,107,0,0.1)}
+.btn-orange:hover{background:rgba(255,107,0,0.25);box-shadow:0 0 30px rgba(255,107,0,0.5)}
+#hud{position:absolute;top:0;left:0;width:100%;padding:15px 20px;display:none;justify-content:space-between;pointer-events:none;z-index:5;background:linear-gradient(180deg,rgba(0,0,0,0.7),transparent)}
+#hud.show{display:flex}
+.hud-left,.hud-right{display:flex;flex-direction:column;gap:6px}
+.hud-right{align-items:flex-end}
+.hud-text{color:#00f0ff;font-size:13px;font-weight:700;text-transform:uppercase}
+.hud-text.orange{color:#ff6b00}
+.hud-text.green{color:#00ff88}
+.hud-text.pink{color:#ff44aa}
+.hud-text.red{color:#ff4444;animation:pulse 0.5s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+#tip{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:rgba(10,0,30,0.95);border:1px solid #00ff88;padding:14px 24px;color:#fff;font-size:13px;max-width:85%;text-align:center;display:none;z-index:10;font-weight:600}
+#phase-banner{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#00f0ff;font-size:48px;font-weight:900;text-shadow:0 0 50px #00f0ff;display:none;z-index:15;text-align:center;text-transform:uppercase;letter-spacing:8px}
+#phase-banner span{display:block;font-size:14px;color:#ff6b00;letter-spacing:10px;margin-top:12px}
+.hidden{display:none!important}
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="hud">
+  <div class="hud-left">
+    <div class="hud-text" id="hud-name">AGENTE</div>
+    <div class="hud-text orange" id="hud-phase">FASE 1</div>
+    <div class="hud-text green" id="hud-score">⭐ 0</div>
+    <div class="hud-text pink" id="hud-combo"></div>
+  </div>
+  <div class="hud-right">
+    <div class="hud-text red" id="hud-timer">⏱ 40s</div>
+    <div class="hud-text" id="hud-goal">🎯 0/6</div>
+  </div>
+</div>
+<div id="tip"></div>
+<div id="phase-banner"></div>
+<div id="ui" class="active">
+  <div class="menu-box" id="menu-main">
+    <h1>NEO-VETOR</h1>
+    <h2>OPERAÇÃO A.E.D.E.S.</h2>
+    <p>
+      <b style="color:#ff6b00">[MISSÃO]</b> Eliminar focos, desviar de obstáculos<br>
+      <b style="color:#00ff88">[CONTROLE]</b> WASD ou Toque para mover<br>
+      <b style="color:#ff44aa">[ALERTA]</b> Poças d'água = dano. Mosquitos = perigo
+    </p>
+    <label>Identificação do Agente:</label>
+    <input type="text" id="inp-name" placeholder="Código..." maxlength="12">
+    <br>
+    <div class="btn" id="btn-start">▶ INICIAR OPERAÇÃO</div>
+  </div>
+  <div class="menu-box hidden" id="menu-victory">
+    <h1 style="color:#00ff88">✓ MISSÃO COMPLETA</h1>
+    <h2 style="color:#00f0ff">SETOR SEGURO</h2>
+    <p style="color:#fff;font-size:14px;margin:14px 0;font-weight:700;text-align:center" id="victory-text"></p>
+    <p style="color:#ff6b00;font-size:32px;font-weight:900;margin:14px 0;text-align:center" id="victory-score"></p>
+    <p style="color:#8ab8d8;font-size:11px;margin:16px 0;line-height:1.8;text-align:center">
+      <b style="color:#00ff88">[CERTIFICAÇÃO]</b> GUARDIÃO NEO-VETOR<br>
+      <b style="color:#ff6b00">10 min/semana</b> = vetor eliminado
+    </p>
+    <div class="btn btn-orange" id="btn-restart">↻ REINICIAR OPERAÇÃO</div>
+  </div>
+</div>
+
+<script>
+const AudioCtx=window.AudioContext||window.webkitAudioContext;
+let actx=null;
+function initAudio(){if(!actx)actx=new AudioCtx()}
+function playTone(freq,dur,type='square',vol=0.08){
+  if(!actx)return;
+  const o=actx.createOscillator(),g=actx.createGain();
+  o.type=type;o.frequency.value=freq;
+  g.gain.setValueAtTime(vol,actx.currentTime);
+  g.gain.exponentialRampToValueAtTime(0.001,actx.currentTime+dur);
+  o.connect(g);g.connect(actx.destination);
+  o.start();o.stop(actx.currentTime+dur);
+}
+function sfxCollect(){playTone(523,0.08,'sine',0.1);setTimeout(()=>playTone(659,0.08,'sine',0.1),70);setTimeout(()=>playTone(784,0.12,'sine',0.12),140)}
+function sfxHit(){playTone(150,0.15,'sawtooth',0.1);playTone(80,0.2,'square',0.07)}
+function sfxCombo(){playTone(1047,0.06,'sine',0.08);playTone(1319,0.06,'sine',0.08)}
+function sfxWin(){[523,659,784,1047].forEach((f,i)=>setTimeout(()=>playTone(f,0.25,'sine',0.12),i*120))}
+function sfxPhase(){playTone(440,0.15,'sine',0.1);setTimeout(()=>playTone(660,0.15,'sine',0.1),120);setTimeout(()=>playTone(880,0.3,'sine',0.12),240)}
+
+let musicInterval=null;
+const bassNotes=[55,55,73,65,55,55,82,73];
+let bassIdx=0;
+function startMusic(){
+  stopMusic();bassIdx=0;
+  musicInterval=setInterval(()=>{
+    if(!actx||game.state!=='PLAYING')return;
+    playTone(bassNotes[bassIdx%bassNotes.length],0.15,'triangle',0.035);
+    if(bassIdx%2===0)playTone(bassNotes[bassIdx%bassNotes.length]*4,0.04,'square',0.015);
+    bassIdx++;
+  },260);
+}
+function stopMusic(){if(musicInterval){clearInterval(musicInterval);musicInterval=null}}
+
+const canvas=document.getElementById('c');
+const ctx=canvas.getContext('2d');
+let W,H,scale;
+function resize(){
+  W=canvas.width=window.innerWidth*devicePixelRatio;
+  H=canvas.height=window.innerHeight*devicePixelRatio;
+  scale=Math.min(W/800,H/600);
+}
+window.addEventListener('resize',resize);
+resize();
+
+const game={
+  state:'MENU',
+  playerName:'Agente',
+  phase:1,
+  score:0,
+  timer:40,
+  goal:0,
+  goalMax:6,
+  combo:0,
+  comboTimer:0,
+  maxCombo:0,
+  player:{x:0,y:0,speed:3.5,dir:1,invuln:0,frame:0},
+  keys:{},
+  buildings:[],
+  focuses:[],
+  mosquitoes:[],
+  obstacles:[],
+  powerups:[],
+  particles:[],
+  spawnTimer:0,
+  tipTimer:0,
+  flash:0,
+  transitioning:false,
+  transitioningTo:0
+};
+
+const tips=[
+  "Vetor detectado. Água limpa = criadouro",
+  "Incubação: 7 dias. Ação imediata",
+  "Pneus: vetor principal. Cobrir",
+  "Vasos: usar areia até a borda",
+  "80% dos focos em residências",
+  "Tampinhas = criadouros",
+  "Repelente + telas = proteção",
+  "Descarte correto de resíduos",
+  "Caixas d'água: vedação total",
+  "Pós-chuva: inspeção de calhas"
+];
+let tipIdx=0;
+
+function createBuilding(x,y,w,h){
+  return{x,y,w:w*scale,h:h*scale};
+}
+
+function createFocus(x,y){
+  const types=[
+    {name:'Pneu',emoji:'🛞',color:'#ff6b00',pts:15},
+    {name:'Vaso',emoji:'🌱',color:'#00ff88',pts:12},
+    {name:'Garrafa',emoji:'🍶',color:'#00f0ff',pts:18},
+    {name:'Lata',emoji:'🥫',color:'#ffcc00',pts:10},
+    {name:'Container',emoji:'📦',color:'#ff44aa',pts:20}
+  ];
+  const t=types[Math.floor(Math.random()*types.length)];
+  return{x,y,w:30*scale,h:30*scale,emoji:t.emoji,color:t.color,name:t.name,pts:t.pts,active:true,life:5+Math.random()*3,pulse:0};
+}
+
+function createMosquito(x,y){
+  return{x,y,w:26*scale,h:20*scale,vx:(Math.random()-0.5)*2.8*scale,vy:(Math.random()-0.5)*2.8*scale,life:1,attackTimer:0,wingFrame:0};
+}
+
+function createObstacle(x,y,type){
+  const types={
+    puddle:{name:'Poça',emoji:'💧',color:'#4488ff',w:40*scale,h:25*scale,damage:15},
+    debris:{name:'Entulho',emoji:'🗑️',color:'#886644',w:35*scale,h:35*scale,damage:10}
+  };
+  const t=types[type];
+  return{x,y,w:t.w,h:t.h,emoji:t.emoji,color:t.color,name:t.name,damage:t.damage,type};
+}
+
+function createPowerUp(x,y){
+  const types=[
+    {name:'Repelente',emoji:'🧴',color:'#00ff88',effect:'heal'},
+    {name:'Energia',emoji:'⚡',color:'#ffcc00',effect:'speed'},
+    {name:'Escudo',emoji:'🛡️',color:'#00f0ff',effect:'shield'}
+  ];
+  const t=types[Math.floor(Math.random()*types.length)];
+  return{x,y,w:32*scale,h:32*scale,emoji:t.emoji,color:t.color,name:t.name,effect:t.effect,life:1,pulse:0};
+}
+
+function addParticles(x,y,color,count=10){
+  for(let i=0;i<count;i++){
+    const a=Math.random()*Math.PI*2;
+    const sp=(2+Math.random()*3)*scale;
+    game.particles.push({
+      x,y,
+      vx:Math.cos(a)*sp,vy:Math.sin(a)*sp,
+      life:1,decay:0.03+Math.random()*0.03,
+      size:(2+Math.random()*3)*scale,
+      color
+    });
+  }
+}
+
+function setupPhase(p){
+  game.phase=p;
+  game.buildings=[];
+  game.focuses=[];
+  game.mosquitoes=[];
+  game.obstacles=[];
+  game.powerups=[];
+  game.particles=[];
+  game.goal=0;
+  game.spawnTimer=0;
+  game.combo=0;
+  game.comboTimer=0;
+  game.transitioning=false;
+  game.transitioningTo=0;
+  
+  if(p===1){
+    game.timer=45;
+    game.goalMax=6;
+    game.player.x=W*0.15;
+    game.player.y=H*0.65;
+    for(let i=0;i<8;i++){
+      const bw=50+Math.random()*30;
+      const bh=80+Math.random()*60;
+      game.buildings.push(createBuilding(W*0.1+i*W*0.11,H*0.82-bh,bw,bh));
+    }
+    for(let i=0;i<6;i++){
+      const bx=W*0.2+i*W*0.12;
+      game.focuses.push(createFocus(bx,H*0.7));
+    }
+    for(let i=0;i<3;i++){
+      const ox=W*0.25+i*W*0.2;
+      game.obstacles.push(createObstacle(ox,H*0.72,'puddle'));
+    }
+  } else if(p===2){
+    game.timer=40;
+    game.goalMax=8;
+    game.player.x=W*0.5;
+    game.player.y=H*0.65;
+    for(let i=0;i<10;i++){
+      const bw=40+Math.random()*40;
+      const bh=100+Math.random()*80;
+      game.buildings.push(createBuilding(W*0.05+i*W*0.1,H*0.82-bh,bw,bh));
+    }
+    for(let i=0;i<8;i++){
+      const bx=W*0.15+i*W*0.1;
+      game.focuses.push(createFocus(bx,H*0.7));
+    }
+    for(let i=0;i<4;i++){
+      game.mosquitoes.push(createMosquito(W*0.3+Math.random()*W*0.4,H*0.3+Math.random()*H*0.2));
+    }
+    for(let i=0;i<5;i++){
+      const ox=W*0.2+i*W*0.15;
+      const type=Math.random()>0.5?'puddle':'debris';
+      game.obstacles.push(createObstacle(ox,H*0.72,type));
+    }
+  } else if(p===3){
+    game.timer=50;
+    game.goalMax=10;
+    game.player.x=W*0.15;
+    game.player.y=H*0.65;
+    for(let i=0;i<12;i++){
+      const bw=35+Math.random()*45;
+      const bh=120+Math.random()*100;
+      game.buildings.push(createBuilding(W*0.03+i*W*0.085,H*0.82-bh,bw,bh));
+    }
+    for(let i=0;i<10;i++){
+      const bx=W*0.1+i*W*0.09;
+      game.focuses.push(createFocus(bx,H*0.7));
+    }
+    for(let i=0;i<6;i++){
+      game.mosquitoes.push(createMosquito(Math.random()*W,H*0.25+Math.random()*H*0.3));
+    }
+    for(let i=0;i<7;i++){
+      const ox=W*0.15+i*W*0.12;
+      const type=Math.random()>0.5?'puddle':'debris';
+      game.obstacles.push(createObstacle(ox,H*0.72,type));
+    }
+  }
+}
+
+window.addEventListener('keydown',e=>{game.keys[e.key.toLowerCase()]=true});
+window.addEventListener('keyup',e=>{game.keys[e.key.toLowerCase()]=false});
+
+let touchX=0,touchY=0,touching=false;
+canvas.addEventListener('touchstart',e=>{
+  e.preventDefault();
+  initAudio();
+  touching=true;
+  const t=e.touches[0];
+  touchX=t.clientX*devicePixelRatio;
+  touchY=t.clientY*devicePixelRatio;
+});
+canvas.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const t=e.touches[0];
+  touchX=t.clientX*devicePixelRatio;
+  touchY=t.clientY*devicePixelRatio;
+});
+canvas.addEventListener('touchend',e=>{e.preventDefault();touching=false});
+
+canvas.addEventListener('mousedown',e=>{
+  initAudio();
+  touching=true;
+  touchX=e.clientX*devicePixelRatio;
+  touchY=e.clientY*devicePixelRatio;
+});
+canvas.addEventListener('mousemove',e=>{
+  if(touching){
+    touchX=e.clientX*devicePixelRatio;
+    touchY=e.clientY*devicePixelRatio;
+  }
+});
+canvas.addEventListener('mouseup',()=>{touching=false});
+
+function showTip(text){
+  game.tipTimer=3.5;
+  const el=document.getElementById('tip');
+  el.innerHTML='<b style="color:#00ff88">[L.I.A.]</b> '+text;
+  el.style.display='block';
+}
+
+function showBanner(line1,line2){
+  const el=document.getElementById('phase-banner');
+  el.innerHTML=line1+'<span>'+line2+'</span>';
+  el.style.display='block';
+  setTimeout(()=>el.style.display='none',3000);
+}
+
+function startGame(){
+  initAudio();sfxPhase();
+  const name=document.getElementById('inp-name').value.trim()||'Agente';
+  game.playerName=name;
+  document.getElementById('menu-main').classList.add('hidden');
+  document.getElementById('ui').classList.remove('active');
+  document.getElementById('hud').classList.add('show');
+  document.getElementById('hud-name').textContent='[ '+name.toUpperCase()+' ]';
+  startMusic();
+  game.state='PLAYING';
+  game.phase=1;
+  game.score=0;
+  game.maxCombo=0;
+  setupPhase(1);
+  showBanner('FASE 1','INSPEÇÃO INICIAL');
+  showTip('Desvie das poças! Elimine os focos!');
+}
+
+document.getElementById('btn-start').addEventListener('click',startGame);
+
+document.getElementById('btn-restart').addEventListener('click',()=>{
+  initAudio();sfxPhase();
+  document.getElementById('menu-victory').classList.add('hidden');
+  document.getElementById('ui').classList.remove('active');
+  document.getElementById('hud').classList.add('show');
+  startMusic();
+  game.state='PLAYING';
+  game.phase=1;
+  game.score=0;
+  game.maxCombo=0;
+  setupPhase(1);
+  showBanner('FASE 1','INSPEÇÃO INICIAL');
+});
+
+let lastTime=0;
+function update(dt){
+  if(game.state!=='PLAYING')return;
+  
+  // Durante transição, não processa nada
+  if(game.transitioning)return;
+  
+  game.timer-=dt;
+  if(game.timer<=0){
+    game.timer=0;
+    game.state='VICTORY';
+    stopMusic();
+    document.getElementById('hud').classList.remove('show');
+    document.getElementById('ui').classList.add('active');
+    document.getElementById('menu-victory').classList.remove('hidden');
+    document.getElementById('victory-text').textContent='Tempo esgotado. Focos: '+game.goal;
+    document.getElementById('victory-score').textContent='⭐ '+game.score+' PTS | COMBO: '+game.maxCombo+'x';
+    return;
+  }
+  
+  // Verifica conclusão da fase - TRAVA IMEDIATA para evitar múltiplas transições
+  if(game.goal>=game.goalMax&&!game.transitioning){
+    game.transitioning=true;
+    
+    if(game.phase===1){
+      // Fase 1 concluída → vai para FASE 2
+      showBanner('FASE 1 COMPLETA','PREPARANDO FASE 2...');
+      sfxWin();
+      setTimeout(()=>{
+        game.phase=2;
+        setupPhase(2);
+        sfxPhase();
+        showBanner('FASE 2','VETORES AÉREOS');
+        showTip('Mosquitos detectados! Cuidado com obstáculos!');
+      },2500);
+    } else if(game.phase===2){
+      // Fase 2 concluída → vai para FASE 3
+      showBanner('FASE 2 COMPLETA','PREPARANDO FASE 3...');
+      sfxWin();
+      setTimeout(()=>{
+        game.phase=3;
+        setupPhase(3);
+        sfxPhase();
+        showBanner('FASE 3','ERRADICAÇÃO TOTAL');
+        showTip('Operação final! Máxima atenção!');
+      },2500);
+    } else if(game.phase===3){
+      // Fase 3 concluída → VITÓRIA
+      game.state='VICTORY';
+      stopMusic();sfxWin();
+      document.getElementById('hud').classList.remove('show');
+      document.getElementById('ui').classList.add('active');
+      document.getElementById('menu-victory').classList.remove('hidden');
+      document.getElementById('victory-text').textContent='Operação concluída. Setor seguro.';
+      document.getElementById('victory-score').textContent='⭐ '+game.score+' PTS | COMBO: '+game.maxCombo+'x';
+    }
+    return;
+  }
+  
+  if(game.comboTimer>0){
+    game.comboTimer-=dt;
+    if(game.comboTimer<=0)game.combo=0;
+  }
+  
+  if(game.tipTimer>0){
+    game.tipTimer-=dt;
+    if(game.tipTimer<=0)document.getElementById('tip').style.display='none';
+  }
+  
+  if(game.flash>0)game.flash-=dt;
+  
+  const p=game.player;
+  if(p.invuln>0)p.invuln-=dt;
+  p.frame+=dt*8;
+  
+  let moveX=0,moveY=0;
+  if(game.keys['w']||game.keys['arrowup'])moveY=-1;
+  if(game.keys['s']||game.keys['arrowdown'])moveY=1;
+  if(game.keys['a']||game.keys['arrowleft'])moveX=-1;
+  if(game.keys['d']||game.keys['arrowright'])moveX=1;
+  
+  if(touching){
+    const dx=touchX-p.x;
+    const dy=touchY-p.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>25*scale){
+      moveX=dx/dist;
+      moveY=dy/dist;
+    }
+  }
+  
+  let newX=p.x+moveX*p.speed*scale*dt*60;
+  let newY=p.y+moveY*p.speed*scale*dt*60;
+  
+  // Check obstacle collision
+  for(const obs of game.obstacles){
+    const dx=newX-obs.x;
+    const dy=newY-obs.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<(obs.w/2+15*scale)){
+      if(p.invuln<=0){
+        game.score=Math.max(0,game.score-obs.damage);
+        game.combo=0;
+        p.invuln=1.5;
+        game.flash=0.3;
+        sfxHit();
+        addParticles(p.x,p.y,obs.color,10);
+        showTip('Obstáculo: '+obs.name+'! Dano: -'+obs.damage);
+      }
+      newX=p.x;
+      newY=p.y;
+      break;
+    }
+  }
+  
+  p.x=Math.max(30*scale,Math.min(W-30*scale,newX));
+  p.y=Math.max(H*0.4,Math.min(H*0.85,newY));
+  if(moveX!==0)p.dir=moveX>0?1:-1;
+  
+  for(let i=game.focuses.length-1;i>=0;i--){
+    const f=game.focuses[i];
+    if(!f.active){game.focuses.splice(i,1);continue}
+    f.pulse+=dt*5;
+    f.life-=dt;
+    if(f.life<=0){
+      f.active=false;
+      game.combo=0;
+      showTip('Foco expirado. Vetor liberado.');
+      game.focuses.splice(i,1);
+      continue;
+    }
+    
+    const dx=p.x-f.x;
+    const dy=p.y-f.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<42*scale){
+      f.active=false;
+      game.goal++;
+      game.combo++;
+      game.comboTimer=2;
+      if(game.combo>game.maxCombo)game.maxCombo=game.combo;
+      const pts=f.pts*(1+game.combo*0.3);
+      game.score+=Math.floor(pts);
+      addParticles(f.x,f.y,f.color,12);
+      sfxCollect();
+      if(game.combo>2)sfxCombo();
+      showTip(tips[tipIdx%tips.length]);
+      tipIdx++;
+      game.focuses.splice(i,1);
+    }
+  }
+  
+  game.spawnTimer-=dt;
+  if(game.spawnTimer<=0&&game.focuses.length<game.goalMax-game.goal+2){
+    const bx=W*0.15+Math.random()*W*0.7;
+    game.focuses.push(createFocus(bx,H*0.7));
+    game.spawnTimer=2.5+Math.random()*2.5;
+  }
+  
+  for(const m of game.mosquitoes){
+    m.x+=m.vx*dt*60;
+    m.y+=m.vy*dt*60;
+    m.wingFrame+=dt*20;
+    if(m.x<0||m.x>W)m.vx*=-1;
+    if(m.y<H*0.2||m.y>H*0.75)m.vy*=-1;
+    
+    const dx=p.x-m.x;
+    const dy=p.y-m.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist>0&&dist<180*scale){
+      m.vx+=(dx/dist)*0.18*scale;
+      m.vy+=(dy/dist)*0.18*scale;
+    }
+    
+    m.attackTimer-=dt;
+    if(dist<32*scale&&p.invuln<=0&&m.attackTimer<=0){
+      game.score=Math.max(0,game.score-8);
+      game.combo=0;
+      p.invuln=1.5;
+      game.flash=0.3;
+      sfxHit();
+      addParticles(p.x,p.y,'#ff0044',8);
+      showTip('Contato hostil. Usar repelente.');
+      m.attackTimer=2;
+      m.x=Math.random()*W;
+      m.y=H*0.25+Math.random()*H*0.25;
+    }
+  }
+  
+  if(Math.random()<0.002&&game.powerups.length<2){
+    game.powerups.push(createPowerUp(W*0.2+Math.random()*W*0.6,H*0.4+Math.random()*H*0.3));
+  }
+  
+  for(let i=game.powerups.length-1;i>=0;i--){
+    const pu=game.powerups[i];
+    pu.pulse+=dt*6;
+    const dx=p.x-pu.x;
+    const dy=p.y-pu.y;
+    const dist=Math.sqrt(dx*dx+dy*dy);
+    if(dist<38*scale){
+      if(pu.effect==='heal'){
+        game.score+=25;
+        showTip('Repelente adquirido. +25 pts');
+      } else if(pu.effect==='speed'){
+        p.speed=5.5;
+        setTimeout(()=>p.speed=3.5,5000);
+        showTip('Acelerador ativado. 5s');
+      } else if(pu.effect==='shield'){
+        p.invuln=5;
+        showTip('Escudo ativado. 5s');
+      }
+      addParticles(pu.x,pu.y,pu.color,15);
+      sfxCollect();
+      game.powerups.splice(i,1);
+    }
+  }
+  
+  for(let i=game.particles.length-1;i>=0;i--){
+    const p=game.particles[i];
+    p.x+=p.vx;p.y+=p.vy;
+    p.vy+=0.15*scale;
+    p.life-=p.decay;
+    if(p.life<=0)game.particles.splice(i,1);
+  }
+  
+  document.getElementById('hud-phase').textContent='FASE '+game.phase;
+  document.getElementById('hud-score').textContent='⭐ '+game.score;
+  document.getElementById('hud-combo').textContent=game.combo>1?'COMBO x'+game.combo:'';
+  document.getElementById('hud-timer').textContent='⏱ '+Math.ceil(game.timer)+'s';
+  if(game.timer<10)document.getElementById('hud-timer').classList.add('red');
+  else document.getElementById('hud-timer').classList.remove('red');
+  document.getElementById('hud-goal').textContent='🎯 '+game.goal+'/'+game.goalMax;
+}
+
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  
+  const grad=ctx.createLinearGradient(0,0,0,H);
+  if(game.phase===1){grad.addColorStop(0,'#0a0020');grad.addColorStop(0.5,'#150035');grad.addColorStop(1,'#0a0018')}
+  else if(game.phase===2){grad.addColorStop(0,'#001510');grad.addColorStop(0.5,'#002518');grad.addColorStop(1,'#000f0a')}
+  else{grad.addColorStop(0,'#150005');grad.addColorStop(0.5,'#250010');grad.addColorStop(1,'#100008')}
+  ctx.fillStyle=grad;
+  ctx.fillRect(0,0,W,H);
+  
+  const groundY=H*0.82;
+  ctx.fillStyle='#0a0a15';
+  ctx.fillRect(0,groundY,W,H-groundY);
+  
+  ctx.strokeStyle='rgba(0,240,255,0.15)';
+  ctx.lineWidth=1;
+  for(let i=0;i<30;i++){
+    const gx=(i*40*scale)%W;
+    ctx.beginPath();
+    ctx.moveTo(gx,groundY);
+    ctx.lineTo(gx,H);
+    ctx.stroke();
+  }
+  for(let i=1;i<5;i++){
+    const gy=groundY+i*(H-groundY)/5;
+    ctx.beginPath();
+    ctx.moveTo(0,gy);
+    ctx.lineTo(W,gy);
+    ctx.stroke();
+  }
+  
+  for(const b of game.buildings){
+    ctx.fillStyle='#0f0f1f';
+    ctx.fillRect(b.x,b.y,b.w,b.h);
+    ctx.strokeStyle='rgba(0,240,255,0.3)';
+    ctx.strokeRect(b.x,b.y,b.w,b.h);
+    ctx.fillStyle='rgba(0,240,255,0.1)';
+    for(let wy=b.y+10*scale;wy<b.y+b.h-10*scale;wy+=15*scale){
+      for(let wx=b.x+5*scale;wx<b.x+b.w-5*scale;wx+=12*scale){
+        if(Math.random()>0.3){
+          ctx.fillRect(wx,wy,6*scale,8*scale);
+        }
+      }
+    }
+  }
+  
+  for(const obs of game.obstacles){
+    ctx.save();
+    ctx.translate(obs.x,obs.y);
+    ctx.shadowColor=obs.color;
+    ctx.shadowBlur=15*scale;
+    ctx.fillStyle=obs.color+'44';
+    ctx.fillRect(-obs.w/2,-obs.h/2,obs.w,obs.h);
+    ctx.strokeStyle=obs.color;
+    ctx.lineWidth=2;
+    ctx.strokeRect(-obs.w/2,-obs.h/2,obs.w,obs.h);
+    ctx.shadowBlur=0;
+    ctx.font='24px serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(obs.emoji,0,0);
+    ctx.restore();
+  }
+  
+  for(const f of game.focuses){
+    if(!f.active)continue;
+    ctx.save();
+    ctx.translate(f.x,f.y);
+    const pulse=1+Math.sin(f.pulse)*0.2;
+    ctx.scale(pulse,pulse);
+    ctx.shadowColor=f.color;
+    ctx.shadowBlur=25*scale;
+    ctx.fillStyle=f.color+'33';
+    ctx.beginPath();
+    ctx.arc(0,0,20*scale,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle=f.color;
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.font='26px serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(f.emoji,0,0);
+    ctx.restore();
+  }
+  
+  for(const m of game.mosquitoes){
+    ctx.save();
+    ctx.translate(m.x,m.y);
+    const wingAngle=Math.sin(m.wingFrame)*0.3;
+    ctx.fillStyle='rgba(255,68,68,0.3)';
+    ctx.beginPath();
+    ctx.ellipse(-8*scale,-5*scale,10*scale,4*scale,wingAngle,0,Math.PI*2);
+    ctx.fill();
+    ctx.beginPath();
+    ctx.ellipse(8*scale,-5*scale,10*scale,4*scale,-wingAngle,0,Math.PI*2);
+    ctx.fill();
+    ctx.shadowColor='#ff4444';
+    ctx.shadowBlur=15*scale;
+    ctx.font='20px serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText('🦟',0,0);
+    ctx.restore();
+  }
+  
+  for(const pu of game.powerups){
+    ctx.save();
+    ctx.translate(pu.x,pu.y);
+    const pulse=1+Math.sin(pu.pulse)*0.25;
+    ctx.scale(pulse,pulse);
+    ctx.shadowColor=pu.color;
+    ctx.shadowBlur=20*scale;
+    ctx.fillStyle=pu.color+'33';
+    ctx.beginPath();
+    ctx.arc(0,0,22*scale,0,Math.PI*2);
+    ctx.fill();
+    ctx.strokeStyle=pu.color;
+    ctx.lineWidth=2;
+    ctx.stroke();
+    ctx.shadowBlur=0;
+    ctx.font='24px serif';
+    ctx.textAlign='center';
+    ctx.textBaseline='middle';
+    ctx.fillText(pu.emoji,0,0);
+    ctx.restore();
+  }
+  
+  if(game.state==='PLAYING'){
+    const p=game.player;
+    ctx.save();
+    ctx.translate(p.x,p.y);
+    const s=scale;
+    
+    if(p.invuln>0&&Math.floor(p.invuln*10)%2===0){
+      ctx.globalAlpha=0.5;
+    }
+    
+    ctx.fillStyle='rgba(0,240,255,0.1)';
+    ctx.beginPath();
+    ctx.ellipse(0,18*s,14*s,5*s,0,0,Math.PI*2);
+    ctx.fill();
+    
+    const walk=Math.sin(p.frame)*0.3;
+    ctx.strokeStyle='#00f0ff';
+    ctx.lineWidth=3*s;
+    ctx.lineCap='round';
+    ctx.beginPath();
+    ctx.moveTo(-5*s,8*s);
+    ctx.lineTo(-7*s+walk*6*s,18*s);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(5*s,8*s);
+    ctx.lineTo(7*s-walk*6*s,18*s);
+    ctx.stroke();
+    
+    ctx.fillStyle='#0a0a2a';
+    ctx.strokeStyle='#00ff88';
+    ctx.lineWidth=2*s;
+    ctx.fillRect(-10*s,-10*s,20*s,20*s);
+    ctx.strokeRect(-10*s,-10*s,20*s,20*s);
+    
+    ctx.fillStyle='#ff6b00';
+    ctx.fillRect(-14*s,-7*s,5*s,15*s);
+    
+    ctx.fillStyle='#d4a574';
+    ctx.beginPath();
+    ctx.arc(0,-16*s,8*s,0,Math.PI*2);
+    ctx.fill();
+    
+    ctx.fillStyle='#00f0ff';
+    ctx.fillRect(-6*s,-18*s,12*s,4*s);
+    
+    ctx.globalAlpha=1;
+    ctx.shadowColor='#00ff88';
+    ctx.shadowBlur=20*s;
+    ctx.strokeStyle='rgba(0,255,136,0.3)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.arc(0,0,22*s,0,Math.PI*2);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+    
+    ctx.font='bold 10px Courier New';
+    ctx.fillStyle='#00ff88';
+    ctx.textAlign='center';
+    ctx.fillText(game.playerName,0,-28*s);
+    
+    ctx.restore();
+  }
+  
+  for(const p of game.particles){
+    ctx.globalAlpha=p.life;
+    ctx.fillStyle=p.color;
+    ctx.shadowColor=p.color;
+    ctx.shadowBlur=5*scale;
+    ctx.beginPath();
+    ctx.arc(p.x,p.y,p.size*p.life,0,Math.PI*2);
+    ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  ctx.shadowBlur=0;
+  
+  if(game.flash>0){
+    ctx.fillStyle='rgba(255,0,0,'+game.flash+')';
+    ctx.fillRect(0,0,W,H);
+  }
+}
+
+function loop(now){
+  const dt=Math.min((now-lastTime)/1000,0.05);
+  lastTime=now;
+  update(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+lastTime=performance.now();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>OCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Snake</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <script src="render.js"></script><!-- defines canvas, ctx, draw() -->
+  <script src="input.js"></script><!-- attaches keyboard + touch listeners -->
+  <script src="game.js"></script> <!-- state, loop, boot -->
+
+</body>
+</html>
